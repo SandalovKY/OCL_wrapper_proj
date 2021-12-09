@@ -3,10 +3,13 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <omp.h>
 
-#include "axpy_cpu.h"
+#include "AxpyCPU.h"
+#include "AxpyGPU.h"
 
 #include "DevWorker.h"
+#include "GpuTask.h"
 
 #define NAME_LENGTH 128
 #define O_SIZE 1000
@@ -23,28 +26,137 @@ namespace
 							"						 const unsigned long count) \n"
 							"{													\n"
 							"	int index = get_global_id(0);					\n"
-							//  "	int group = get_group_id(0);					\n"
-							//  "	int lcl = get_local_id(0);						\n"
-							//  "	printf(\"Hello from %i block, %i thread (global id: %i)\\n\", group, lcl, index); \n"
+							"	int group = get_group_id(0);					\n"
+							"	int lcl = get_local_id(0);						\n"
+							"	printf(\"Hello from %i block, %i thread (global id: %i)\\n\", group, lcl, index); \n"
 							"	if (index < count)								\n"
 							"		inout[index] = inout[index] + index;		\n"
 							"}													\n";
+}
 
-	char const* saxpy = "__kernel void operation(const float a,								\n"
-						"	__private float * x, const long incx,							\n"
-						"	__private float * y, const long incy)							\n"
-						"{																	\n"
-						"	int index = get_global_id(0);									\n"
-						"	y[index * incy] = y[index * incy] + a * x[index * incx];		\n"
-						"}																	\n";
+int testSaxpy(size_t size, size_t incx, size_t incy)
+{
+	std::cout << "\nVector Size: " << size << '\n';
+	std::cout << "Saxpy times:\n";
+	std::vector<float> y(size, 1.);
+	std::vector<float> x(size, 1.);
+	float a{ 1.4 };
 
-	char const* daxpy = "__kernel void operation(const double a,							\n"
-						"	__global double * x, const long incx,							\n"
-						"	__global double * y, const long incy)							\n"
-						"{																	\n"
-						"	int index = get_global_id(0);									\n"
-						"	y[index * incy] = y[index * incy] + a * x[index * incx];		\n"
-						"}																	\n";
+	// Start CPU axpy
+	double start = omp_get_wtime();
+	my::_axpy(size, a, x, incx, y, incy);
+	double end = omp_get_wtime() - start;
+	std::cout << "\nTime for CPU: " << end << std::endl;
+
+	for (const auto& vecEl : y)
+	{
+		if (std::abs(vecEl - 2.4) > 0.000001)
+		{
+			std::cout << "Incorrect output for the CPU faxpy\n";
+			return EXIT_FAILURE;
+		}
+	}
+
+	start = omp_get_wtime();
+	my::saxpy_omp(size, 2, x, incx, y, incy);
+	end = omp_get_wtime() - start;
+	std::cout << "\nTime for CPU with OMP:" << end << std::endl;
+
+	for (const auto& vecEl : y)
+	{
+		if (std::abs(vecEl - 4.4) > 0.000001)
+		{
+			std::cout << "Incorrect output for the OMP CPU faxpy\n";
+			return EXIT_FAILURE;
+		}
+	}
+
+	my::saxpy_gpu(size, static_cast<cl_float>(1), x, incx, y, incy, AMD_device.c_str());
+
+	for (const auto& vecEl : y)
+	{
+		if (std::abs(vecEl - 5.4) > 0.000001)
+		{
+			std::cout << "Incorrect output for the AMD GPU faxpy\n";
+			return EXIT_FAILURE;
+		}
+	}
+
+	my::saxpy_gpu(size, static_cast<cl_float>(1), x, incx, y, incy, NVidia_device.c_str());
+
+	for (const auto& vecEl : y)
+	{
+		if (std::abs(vecEl - 6.4) > 0.000001)
+		{
+			std::cout << "Incorrect output for the NVidia GPU faxpy\n";
+			return EXIT_FAILURE;
+		}
+	}
+	std::cout << "\n-------------------------------------\n";
+	return EXIT_SUCCESS;
+}
+
+int testDaxpy(size_t size, size_t incx, size_t incy)
+{
+	std::cout << "\nVector Size: " << size << '\n';
+	std::cout << "Daxpy times:\n";
+	std::vector<double> y(size, 1.);
+	std::vector<double> x(size, 1.);
+	double a{ 1.4 };
+
+	// Start CPU axpy
+	double start = omp_get_wtime();
+	my::_axpy(size, a, x, incx, y, incy);
+	double end = omp_get_wtime() - start;
+	std::cout << "\nTime for CPU: " << end << std::endl;
+
+	for (const auto& vecEl : y)
+	{
+		if (std::abs(vecEl - 2.4) > 0.000001)
+		{
+			std::cout << "Incorrect output for the CPU faxpy\n";
+			return EXIT_FAILURE;
+		}
+	}
+
+	start = omp_get_wtime();
+	my::daxpy_omp(size, 2, x, incx, y, incy);
+	end = omp_get_wtime() - start;
+	std::cout << "\nTime for CPU with OMP: " << end << std::endl;
+
+	for (const auto& vecEl : y)
+	{
+		if (std::abs(vecEl - 4.4) > 0.000001)
+		{
+			std::cout << "Incorrect output for the OMP CPU faxpy\n";
+			return EXIT_FAILURE;
+		}
+	}
+
+	my::daxpy_gpu(size, static_cast<cl_float>(1), x, incx, y, incy, AMD_device.c_str());
+
+	for (const auto& vecEl : y)
+	{
+		if (std::abs(vecEl - 5.4) > 0.000001)
+		{
+			std::cout << "Incorrect output for the AMD GPU faxpy\n";
+			return EXIT_FAILURE;
+		}
+	}
+
+	my::daxpy_gpu(size, static_cast<cl_float>(1), x, incx, y, incy, NVidia_device.c_str());
+
+	for (const auto& vecEl : y)
+	{
+		if (std::abs(vecEl - 6.4) > 0.000001)
+		{
+			std::cout << "Incorrect output for the NVidia GPU faxpy\n";
+			return EXIT_FAILURE;
+		}
+	}
+
+	std::cout << "\n-------------------------------------\n";
+	return EXIT_SUCCESS;
 }
 
 int main() {
@@ -58,7 +170,7 @@ int main() {
 	int64_t incy{ 0 };
 	int64_t incx{ 0 };
 
-	while (incy <= 0 && incx <= 0)
+	while (incy <= 0 || incx <= 0)
 	{
 		std::cout << "IncY: ";
 		std::cin >> incy;
@@ -67,78 +179,16 @@ int main() {
 		std::cin >> incx;
 	}
 
-	using op_type = float;
-	std::vector<op_type> y(size, 1.);
-	std::vector<op_type> x(size, 1.);
-	op_type a{ 1.4 };
-
-	my::_axpy(size, a, x.data(), incx, y.data(), incy);
-	for (const auto& el : y)
+	std::cout << "\nTesting saxpy:\n";
+	for (int i = 0; i < 2; ++i)
 	{
-		std::cout << el << std::endl;
+		testSaxpy(200000000, incx, incy);
+	}
+	std::cout << "\nTesting daxpy:\n";
+	for (int i = 0; i < 2; ++i)
+	{
+		testDaxpy(100000000, incx, incy);
 	}
 
-	MY::DevWorker worker = MY::DevWorker();
-	MY::GpuTask task = worker.createGpuTask(NVidia_device.c_str(), saxpy);
-	if (!task.isTaskFailed())
-	{
-		std::cout << "GpuTask was created\n";
-
-		int res = CL_SUCCESS;
-
-		std::vector<cl_float> y_gpu(size, 1.);
-		std::vector<cl_float> x_gpu(size, 1.);
-		const cl_float a_gpu{ 1.4 };
-		cl_long yBuffSize = y_gpu.size();
-		cl_long xBuffSize = x_gpu.size();
-
-		cl_mem yBuff = task.addBuffer<cl_float>(yBuffSize, CL_MEM_READ_WRITE, res);
-		if (res != CL_SUCCESS)
-		{
-			std::cout << "Problem in buffer creation process\n";
-			return EXIT_FAILURE;
-		}
-
-		cl_mem xBuff = task.addBuffer<cl_float>(xBuffSize, CL_MEM_READ_ONLY, res);
-		if (res != CL_SUCCESS)
-		{
-			std::cout << "Problem in buffer creation process\n";
-			return EXIT_FAILURE;
-		}
-
-		res = task.enqueueWriteBuffer<cl_float>(y_gpu.size(), y_gpu.data(), yBuff);
-		if (res != CL_SUCCESS) return EXIT_FAILURE;
-		res = task.enqueueWriteBuffer<cl_float>(x_gpu.size(), x_gpu.data(), xBuff);
-		if (res != CL_SUCCESS) return EXIT_FAILURE;
-
-		res = task.passParams(a_gpu, xBuff, incx, yBuff, incy);
-		if (res != CL_SUCCESS)
-		{
-			std::cout << "Problem in params passing process\n";
-			std::cout << res << std::endl;
-			return EXIT_FAILURE;
-		}
-
-		size_t localSize = 10;
-		size_t globalSize = y_gpu.size();
-		res = task.enqueueKernel(1, &localSize, &globalSize);
-		if (res != CL_SUCCESS) return EXIT_FAILURE;
-
-		res = task.enqueueReadBuffer<float>(y_gpu.size(), y_gpu.data(), yBuff);
-		if (res != CL_SUCCESS) return EXIT_FAILURE;
-
-		for (const auto& el : y_gpu)
-		{
-			std::cout << el << '\n';
-		}
-
-		clReleaseMemObject(yBuff);
-		clReleaseMemObject(xBuff);
-		return EXIT_SUCCESS;
-	}
-	else
-	{
-		std::cout << "GpuTask creation failed!\n";
-	}
 	return EXIT_FAILURE;
 }

@@ -134,6 +134,10 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.4\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OpenMPSupport>true</OpenMPSupport>
+      <EnableModules>false</EnableModules>
+      <AdditionalOptions>-openmp:experimental</AdditionalOptions>
+      <Optimization>Disabled</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -146,11 +150,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="DevWorker.cpp" />
+    <ClCompile Include="GpuTask.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="axpy_cpu.h" />
+    <ClInclude Include="AxpyCPU.h" />
+    <ClInclude Include="AxpyGPU.h" />
     <ClInclude Include="DevWorker.h" />
+    <ClInclude Include="GpuTask.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
