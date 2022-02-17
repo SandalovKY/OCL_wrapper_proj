@@ -29,7 +29,7 @@ namespace
 		"}																	\n";
 }
 
-int saxpy_gpu(size_t size, cl_float a_gpu, const std::vector<cl_float>& x_gpu, cl_long incx, std::vector<cl_float>& y_gpu, cl_long incy, const char* _deviceName)
+int saxpy_gpu(size_t size, cl_float a_gpu, std::vector<cl_float>& x_gpu, cl_long incx, std::vector<cl_float>& y_gpu, cl_long incy, const char* _deviceName)
 {
 	if (size <= 0 || incx <= 0 || incy <= 0) return EXIT_FAILURE;
 	my::DevWorker worker = my::DevWorker();
@@ -45,34 +45,57 @@ int saxpy_gpu(size_t size, cl_float a_gpu, const std::vector<cl_float>& x_gpu, c
 		size_t yBuffSize = y_gpu.size();
 		size_t xBuffSize = x_gpu.size();
 
-		cl_mem yBuff = task.addBuffer<cl_float>(yBuffSize, CL_MEM_READ_WRITE, res);
-		if (res != CL_SUCCESS)
-		{
-			std::cout << "Problem in buffer creation process\n";
-			return EXIT_FAILURE;
-		}
-
-		cl_mem xBuff = task.addBuffer<cl_float>(xBuffSize, CL_MEM_READ_ONLY, res);
-		if (res != CL_SUCCESS)
-		{
-			std::cout << "Problem in buffer creation process\n";
-			return EXIT_FAILURE;
-		}
-
 		double totalTime = omp_get_wtime();
-		res = task.enqueueWriteBuffer<cl_float>(yBuffSize, y_gpu.data(), yBuff);
-		if (res != CL_SUCCESS)
+		cl_mem yBuff, xBuff;
+
+		std::string AMD_device{ "gfx902" };
+
+		if (AMD_device.find(_deviceName) != AMD_device.npos)
 		{
-			std::cout << res << '\n';
-			std::cout << "Problem in write buffer enqueue\n";
-			return EXIT_FAILURE;
+			yBuff = task.addBuffer<cl_float>(yBuffSize, CL_MEM_USE_HOST_PTR, res, y_gpu.data());
+			if (res != CL_SUCCESS)
+			{
+				std::cout << "Problem in buffer creation process\n";
+				return EXIT_FAILURE;
+			}
+
+			xBuff = task.addBuffer<cl_float>(xBuffSize, CL_MEM_USE_HOST_PTR, res, x_gpu.data());
+			if (res != CL_SUCCESS)
+			{
+				std::cout << "Problem in buffer creation process\n";
+				return EXIT_FAILURE;
+			}
 		}
-		res = task.enqueueWriteBuffer<cl_float>(xBuffSize, x_gpu.data(), xBuff);
-		if (res != CL_SUCCESS)
+		else
 		{
-			std::cout << res << '\n';
-			std::cout << "Problem in write buffer enqueue\n";
-			return EXIT_FAILURE;
+			yBuff = task.addBuffer<cl_float>(yBuffSize, CL_MEM_READ_WRITE, res);
+			if (res != CL_SUCCESS)
+			{
+				std::cout << "Problem in buffer creation process\n";
+				return EXIT_FAILURE;
+			}
+
+			xBuff = task.addBuffer<cl_float>(xBuffSize, CL_MEM_READ_ONLY, res);
+			if (res != CL_SUCCESS)
+			{
+				std::cout << "Problem in buffer creation process\n";
+				return EXIT_FAILURE;
+			}
+
+			res = task.enqueueWriteBuffer<cl_float>(yBuffSize, y_gpu.data(), yBuff);
+			if (res != CL_SUCCESS)
+			{
+				std::cout << res << '\n';
+				std::cout << "Problem in write buffer enqueue\n";
+				return EXIT_FAILURE;
+			}
+			res = task.enqueueWriteBuffer<cl_float>(xBuffSize, x_gpu.data(), xBuff);
+			if (res != CL_SUCCESS)
+			{
+				std::cout << res << '\n';
+				std::cout << "Problem in write buffer enqueue\n";
+				return EXIT_FAILURE;
+			}
 		}
 
 		res = task.passParams(static_cast<cl_long>(size), a_gpu, xBuff, incx, xBuffSize, yBuff, incy, yBuffSize);
@@ -90,11 +113,14 @@ int saxpy_gpu(size_t size, cl_float a_gpu, const std::vector<cl_float>& x_gpu, c
 			std::cout << "With enqueue task proc problems\n";
 			return EXIT_FAILURE;
 		}
-		res = task.enqueueReadBuffer<float>(y_gpu.size(), y_gpu.data(), yBuff, CL_FALSE);
-		if (res != CL_SUCCESS)
+		if (AMD_device.find(_deviceName) == AMD_device.npos)
 		{
-			std::cout << "Problem in read buffer enqueue\n";
-			return EXIT_FAILURE;
+			res = task.enqueueReadBuffer<float>(y_gpu.size(), y_gpu.data(), yBuff);
+			if (res != CL_SUCCESS)
+			{
+				std::cout << "Problem in read buffer enqueue\n";
+				return EXIT_FAILURE;
+			}
 		}
 		totalTime = omp_get_wtime() - totalTime;
 		std::cout << "Kernel time on GPU: " << kernelTime << '\n';
@@ -110,7 +136,7 @@ int saxpy_gpu(size_t size, cl_float a_gpu, const std::vector<cl_float>& x_gpu, c
 	}
 }
 
-int daxpy_gpu(size_t size, cl_double a_gpu, const std::vector<cl_double>& x_gpu, cl_long incx, std::vector<cl_double>& y_gpu, cl_long incy, const char* _deviceName)
+int daxpy_gpu(size_t size, cl_double a_gpu, std::vector<cl_double>& x_gpu, cl_long incx, std::vector<cl_double>& y_gpu, cl_long incy, const char* _deviceName)
 {
 	if (size <= 0 || incx <= 0 || incy <= 0) return EXIT_FAILURE;
 	my::DevWorker worker = my::DevWorker();
@@ -126,34 +152,57 @@ int daxpy_gpu(size_t size, cl_double a_gpu, const std::vector<cl_double>& x_gpu,
 		size_t yBuffSize = y_gpu.size();
 		size_t xBuffSize = x_gpu.size();
 
-		cl_mem yBuff = task.addBuffer<cl_double>(yBuffSize, CL_MEM_READ_WRITE, res);
-		if (res != CL_SUCCESS)
-		{
-			std::cout << "Problem in buffer creation process\n";
-			return EXIT_FAILURE;
-		}
-
-		cl_mem xBuff = task.addBuffer<cl_double>(xBuffSize, CL_MEM_READ_ONLY, res);
-		if (res != CL_SUCCESS)
-		{
-			std::cout << "Problem in buffer creation process\n";
-			return EXIT_FAILURE;
-		}
-
 		double totalTime = omp_get_wtime();
-		res = task.enqueueWriteBuffer<cl_double>(yBuffSize, y_gpu.data(), yBuff);
-		if (res != CL_SUCCESS)
+		cl_mem yBuff, xBuff;
+
+		std::string AMD_device{ "gfx902" };
+
+		if (AMD_device.find(_deviceName) != AMD_device.npos)
 		{
-			std::cout << res << '\n';
-			std::cout << "Problem in write buffer enqueue\n";
-			return EXIT_FAILURE;
+			yBuff = task.addBuffer<cl_double>(yBuffSize, CL_MEM_USE_HOST_PTR, res, y_gpu.data());
+			if (res != CL_SUCCESS)
+			{
+				std::cout << "Problem in buffer creation process\n";
+				return EXIT_FAILURE;
+			}
+
+			xBuff = task.addBuffer<cl_double>(xBuffSize, CL_MEM_USE_HOST_PTR, res, x_gpu.data());
+			if (res != CL_SUCCESS)
+			{
+				std::cout << "Problem in buffer creation process\n";
+				return EXIT_FAILURE;
+			}
 		}
-		res = task.enqueueWriteBuffer<cl_double>(xBuffSize, x_gpu.data(), xBuff);
-		if (res != CL_SUCCESS)
+		else
 		{
-			std::cout << res << '\n';
-			std::cout << "Problem in write buffer enqueue\n";
-			return EXIT_FAILURE;
+			yBuff = task.addBuffer<cl_double>(yBuffSize, CL_MEM_READ_WRITE, res);
+			if (res != CL_SUCCESS)
+			{
+				std::cout << "Problem in buffer creation process\n";
+				return EXIT_FAILURE;
+			}
+
+			xBuff = task.addBuffer<cl_double>(xBuffSize, CL_MEM_READ_ONLY, res);
+			if (res != CL_SUCCESS)
+			{
+				std::cout << "Problem in buffer creation process\n";
+				return EXIT_FAILURE;
+			}
+
+			res = task.enqueueWriteBuffer<cl_double>(yBuffSize, y_gpu.data(), yBuff);
+			if (res != CL_SUCCESS)
+			{
+				std::cout << res << '\n';
+				std::cout << "Problem in write buffer enqueue\n";
+				return EXIT_FAILURE;
+			}
+			res = task.enqueueWriteBuffer<cl_double>(xBuffSize, x_gpu.data(), xBuff);
+			if (res != CL_SUCCESS)
+			{
+				std::cout << res << '\n';
+				std::cout << "Problem in write buffer enqueue\n";
+				return EXIT_FAILURE;
+			}
 		}
 
 		res = task.passParams(static_cast<cl_long>(size), a_gpu, xBuff, incx, xBuffSize, yBuff, incy, yBuffSize);
@@ -171,11 +220,14 @@ int daxpy_gpu(size_t size, cl_double a_gpu, const std::vector<cl_double>& x_gpu,
 			std::cout << "With enqueue task proc problems\n";
 			return EXIT_FAILURE;
 		}
-		res = task.enqueueReadBuffer<cl_double>(y_gpu.size(), y_gpu.data(), yBuff);
-		if (res != CL_SUCCESS)
+		if (AMD_device.find(_deviceName) == AMD_device.npos)
 		{
-			std::cout << "Problem in read buffer enqueue\n";
-			return EXIT_FAILURE;
+			res = task.enqueueReadBuffer<double>(y_gpu.size(), y_gpu.data(), yBuff);
+			if (res != CL_SUCCESS)
+			{
+				std::cout << "Problem in read buffer enqueue\n";
+				return EXIT_FAILURE;
+			}
 		}
 		totalTime = omp_get_wtime() - totalTime;
 		std::cout << "Kernel time on GPU: " << kernelTime << '\n';

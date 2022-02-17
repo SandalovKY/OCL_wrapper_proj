@@ -21,7 +21,10 @@
     <ClCompile Include="DevWorker.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="GpuTask.cpp">
+    <ClCompile Include="MatMult.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClCompile>
+    <ClCompile Include="MatMult.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
