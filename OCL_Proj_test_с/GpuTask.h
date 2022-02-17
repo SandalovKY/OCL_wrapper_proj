@@ -9,7 +9,7 @@ namespace my
 class GpuTask
 {
 public:
-	GpuTask() {}
+	GpuTask() = default;
 	GpuTask(cl_device_id device, const char* _sourceKernel) : m_device(device)
 	{
 		status = initProgram(device, _sourceKernel);
@@ -41,10 +41,10 @@ public:
 		return status != CL_SUCCESS;
 	}
 	template <typename TYPE>
-	cl_mem addBuffer(size_t size, int type, int& err)
+	cl_mem addBuffer(size_t size, int type, int& err, TYPE* pointer = NULL)
 	{
 		return clCreateBuffer(m_context,
-			type, sizeof(TYPE) * size, NULL, &err);
+			type, sizeof(TYPE) * size, pointer, &err);
 	}
 	template <typename TYPE>
 	int enqueueWriteBuffer(size_t size, TYPE* ptr, cl_mem memBuffer, size_t blockingWrite = CL_TRUE)

@@ -4,9 +4,11 @@
 #include <vector>
 #include <string>
 #include <omp.h>
+#include <random>
 
 #include "AxpyCPU.h"
 #include "AxpyGPU.h"
+#include "MatMult.h"
 
 #include "DevWorker.h"
 #include "GpuTask.h"
@@ -40,7 +42,7 @@ int testSaxpy(size_t size, size_t incx, size_t incy)
 	std::cout << "Saxpy times:\n";
 	std::vector<float> y(size, 1.);
 	std::vector<float> x(size, 1.);
-	float a{ 1.4 };
+	float a{ 1.4f };
 
 	// Start CPU axpy
 	double start = omp_get_wtime();
@@ -161,7 +163,8 @@ int testDaxpy(size_t size, size_t incx, size_t incy)
 
 int main() {
 
-	int64_t size{ 0 };
+	
+	/*int64_t size{0};
 	while (size <= 0)
 	{
 		std::cout << "Array syze: ";
@@ -188,7 +191,111 @@ int main() {
 	for (int i = 0; i < 2; ++i)
 	{
 		testDaxpy(100000000, incx, incy);
+	}*/
+	
+
+	size_t X, Y, Z;
+	X = 1024; Y = 1024; Z = 1024;
+
+	std::vector<cl_int> matrA(Z * Y, 1);
+	std::vector<cl_int> matrB(Y * X, 2);
+
+	for (auto& matrEl : matrA)
+	{
+		matrEl = std::rand();
 	}
 
-	return EXIT_FAILURE;
+	for (auto& matrEl : matrB)
+	{
+		matrEl = std::rand();
+	}
+
+	/*double start = omp_get_wtime();
+	const auto resMatr = matMultCpu(matrA, matrB, Z, Y, X);
+	start = omp_get_wtime() - start;
+	std::cout << "Res MatMult time: " << start << std::endl;*/
+
+
+	std::cout << "\nWithout using shared memory:\n";
+	const auto resGpuMatr = matMultGpu(matrA, matrB, Z, Y, X, NVidia_device.c_str());
+	const auto resGpuMatrAMD = matMultGpu(matrA, matrB, Z, Y, X, AMD_device.c_str());
+
+	std::cout << "\nUsing shared memory:\n";
+	const auto resGpuMatr1 = matMultGpu(matrA, matrB, Z, Y, X, NVidia_device.c_str(), true);
+	const auto resGpuMatrAMD1 = matMultGpu(matrA, matrB, Z, Y, X, AMD_device.c_str(), true);
+
+	/*for (int i = 0; i < resMatr.size(); ++i)
+	{
+		if (resMatr[i] != resGpuMatr[i])
+		{
+			std::cout << "Error\n";
+			return EXIT_FAILURE;
+		}
+	}*/
+
+	/*start = omp_get_wtime();
+	const auto resMatr4 = matMultCpuBlock(matrA, matrB, Z, Y, X);
+	start = omp_get_wtime() - start;
+	std::cout << "Res MatMultBlock time: " << start << std::endl;
+
+	for (int i = 0; i < resMatr.size(); ++i)
+	{
+		if (resMatr[i] != resMatr4[i])
+		{
+			std::cout << "Error\n";
+			return EXIT_FAILURE;
+		}
+	}
+
+	start = omp_get_wtime();
+	const auto bTransp = transpMatr(matrB, X, Y);
+	const auto resMatr2 = matMultCpuTransp(matrA, bTransp, Z, Y, X);
+	start = omp_get_wtime() - start;
+	std::cout << "Res MatMultTransp time: " << start << std::endl;
+
+	for (int i = 0; i < resMatr.size(); ++i)
+	{
+		if (resMatr[i] != resMatr2[i])
+		{
+			std::cout << "Error\n";
+			return EXIT_FAILURE;
+		}
+	}*/
+
+	/*for (int i = 0; i < 5; ++i)
+	{
+		start = omp_get_wtime();
+		const auto resMatr1 = matMultCpuOMP(matrA, matrB, X, Y, Z);
+		start = omp_get_wtime() - start;
+		std::cout << "Res MatMultOMP time: " << start << std::endl;
+
+		for (int i = 0; i < resMatr.size(); ++i)
+		{
+			if (resMatr[i] != resMatr1[i])
+			{
+				std::cout << "Error\n";
+				return EXIT_FAILURE;
+			}
+		}
+	}*/
+
+	for (int i = 0; i < 5; ++i)
+	{
+		auto start = omp_get_wtime();
+		const auto bTransp1 = transpMatrOMP(matrB, X, Y);
+		const auto resMatr1 = matMultCpuTranspOMP(matrA, bTransp1, X, Y, Z);
+		start = omp_get_wtime() - start;
+		std::cout << "\nRes MatMultOMPTransp time: " << start << std::endl;
+
+		for (int i = 0; i < resMatr1.size(); ++i)
+		{
+			if (resGpuMatr[i] != resMatr1[i])
+			{
+				std::cout << "Error\n";
+				return EXIT_FAILURE;
+			}
+		}
+	}
+
+	return EXIT_SUCCESS;
 }
